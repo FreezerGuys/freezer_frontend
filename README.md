@@ -40,3 +40,14 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Test Login INFO
 test11@gmail.com
 test11
+
+
+TODO RULES
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userEmail} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userEmail;
+      allow create: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin']);
+    }
+  }
+}
