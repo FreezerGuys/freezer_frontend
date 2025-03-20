@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { useRouter } from 'next/router'
 import Cookies from 'js-cookie'
-import { Button, Box, Typography, Container, Alert } from '@mui/material'
+import { Button, Box, Container, Alert } from '@mui/material'
 
-export default function DashboardPage() {  // Assuming this is your dashboard or profile page
-  const router = useRouter()
+interface props {
+  handleSignupRedirect: () => void
+  pushLogin: () => void
+}
+export default function DashboardPage({handleSignupRedirect, pushLogin}: props) {  // Assuming this is your dashboard or profile page
+  
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -18,7 +21,7 @@ export default function DashboardPage() {  // Assuming this is your dashboard or
 
       // Redirect the user after a short delay
       setTimeout(() => {
-        router.push('/login')  // Redirect to login page
+        pushLogin()  // Redirect to login page
       }, 1500)  // Delay to show the success message
     } catch (error) {
       setError('An error occurred while logging out. Please try again later.')
@@ -26,11 +29,23 @@ export default function DashboardPage() {  // Assuming this is your dashboard or
     }
   }
 
+  
+
   return (
     <Container maxWidth="xs">
       <Box display="flex" flexDirection="column" alignItems="center" mt={8}>
-        <Typography variant="h5" gutterBottom>Dashboard</Typography>
         
+        {/* Sign Up Button */}
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          onClick={handleSignupRedirect}
+          sx={{ mb: 2 }}
+        >
+          Sign Up
+        </Button>
+
         {/* Success and error messages */}
         {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ width: '100%', mb: 2 }}>{success}</Alert>}
@@ -41,7 +56,7 @@ export default function DashboardPage() {  // Assuming this is your dashboard or
           variant="contained"
           color="secondary"
           onClick={handleLogout}
-          sx={{ mt: 2 }}
+          sx={{ mt: 8 }}
         >
           Logout
         </Button>

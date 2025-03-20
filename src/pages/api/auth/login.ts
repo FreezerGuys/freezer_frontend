@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import Cookies from 'cookies'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '../../../lib/firebase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -8,16 +8,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { email, password } = req.body
-  const auth = getAuth()
 
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
-    console.log(userCredential)
     const user = userCredential.user
     const token = await user.getIdToken()
 
-    const cookies = new Cookies(req, res)
-    cookies.set('auth_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' })
+    res.setHeader('Set-Cookie',
+       `auth_token=${token}; Path=/; HttpOnly; Secure=${process.env.NODE_ENV === 'production'}; SameSite=Strict`)
 
     res.status(200).json({ success: true })
   } catch (error) {
