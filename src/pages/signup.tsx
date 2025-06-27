@@ -72,10 +72,15 @@ export default function SignupPage() {
       setTimeout(() => {
         router.push('/dashboard') // Redirect to dashboard or another page
       }, 1500)
-    } catch (error) {
-      setError((error as Error).message)
-      console.error('Signup error:', error)
-    } finally {
+    } catch (error: any) {
+  if (error.code === 'auth/email-already-in-use') {
+    setError('This email is already associated with an account. Please use a different email or ask the student to reset their password.')
+  } else {
+    setError(error.message || 'An unexpected error occurred.')
+  }
+  console.error('Signup error:', error)
+}
+ finally {
       setLoading(false)
     }
   }
