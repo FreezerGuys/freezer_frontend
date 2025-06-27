@@ -1,20 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Box, Button, Typography, Container } from "@mui/material"
-import DashboardPage from "@/pages/dashboard" 
+import { Box, Typography, Container } from "@mui/material"
+import DashboardPage from "@/pages/dashboard"
 import { useRouter } from "next/navigation"
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [role, setRole] = useState<string | null>(null) 
   const router = useRouter()
 
   const handleSignupRedirect = () => {
-    router.push('/signup')  // Navigate to the Sign Up page
+    router.push("/signup")
   }
 
   const pushLogin = () => {
-    router.push('/login')
+    router.push("/login")
   }
 
   useEffect(() => {
@@ -22,38 +23,33 @@ export default function Home() {
       try {
         const res = await fetch("/api/auth/status", { credentials: "include" })
         const data = await res.json()
-        setIsLoggedIn(data.authenticated)
+
+        if (!data.authenticated) {
+          router.push("/login")
+        } else {
+          setRole(data.role)
+          setIsAuthenticated(true)
+        }
       } catch (error) {
-        console.error("Error checking auth status:", error)
+        console.error("Auth check failed:", error)
+        router.push("/login")
       }
     }
 
     checkAuth()
-  }, [])
+  }, [router])
+
+  if (isAuthenticated === null) {
+    return null // Or a loading spinner
+  }
 
   return (
-    <Container maxWidth="xs">
-      <Box display="flex" flexDirection="column" alignItems="center" mt={8}>
-        <Typography variant="h4" gutterBottom>
-          {isLoggedIn ? "Dashboard" : "Welcome to Our App"}
-        </Typography>
-
-        {isLoggedIn ? (
-          <Box>
-            {/* Pass router functions as props */}
-            <DashboardPage handleSignupRedirect={handleSignupRedirect} pushLogin={pushLogin}/>
-          </Box>
-        ) : (
-          <Box>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Please log in to access your dashboard
-            </Typography>
-            <Button fullWidth variant="contained" color="primary" sx={{ mt: 2 }}>
-              Login
-            </Button>
-          </Box>
-        )}
-      </Box>
+    <Container disableGutters>
+        <DashboardPage
+          handleSignupRedirect={handleSignupRedirect}
+          pushLogin={pushLogin}
+          role={role}
+        />
     </Container>
   )
 }
