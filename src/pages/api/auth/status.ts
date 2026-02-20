@@ -1,32 +1,62 @@
-// pages/api/auth/status.ts
-
-import { getAuth } from 'firebase/auth'
-import { app } from '../../../lib/firebase'  // Import your Firebase app initialization
 import { NextApiRequest, NextApiResponse } from 'next'
-import { doc, getDoc, getFirestore } from 'firebase/firestore'
+import admin from '../../../lib/firebaseAdmin'
+import { getFirestore } from 'firebase-admin/firestore'
+import { DecodedIdToken } from 'firebase-admin/auth'
 
-const auth = getAuth(app)
-const db = getFirestore(app)
+const db = getFirestore()
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const user = auth.currentUser
+    const token = req.cookies.auth_token
 
-    if (!user) {
-      return res.status(401).json({ authenticated: false })
+    if (!token) {
+      return res.status(401).json({ authenticated: false, message: 'No token found' })
     }
 
-    // Optionally, you can fetch additional user information, such as their role from Firestore
-    // For example, let's assume you're storing user roles in Firestore
-    const roleSnapshot = await getDoc(doc(db, 'users', user.email!.normalize()))  // Replace db with your Firestore instance
-    const roleData = roleSnapshot.exists() ? roleSnapshot.data() : null
+    let decodedToken: DecodedIdToken
+    let uid: string
+
+    // Try to verify as ID token first
+    try {
+      decodedToken = await admin.auth().verifyIdToken(token)
+      uid = decodedToken.uid
+    } catch {
+      // If it fails, it might be a custom token
+      // Custom tokens cannot be verified directly, so we return error
+      return res.status(401).json({ authenticated: false, message: 'Invalid token' })
+    }
+
+    // Get user record to check custom claims
+    const userRecord = await admin.auth().getUser(uid)
+    const role = decodedToken.role || userRecord.customClaims?.role || 'user'
+
+    // Ensure user document exists in Firestore
+    const userDoc = await db.collection('Users').doc(uid).get()
+    if (!userDoc.exists) {
+      // Create user document if it doesn't exist
+      await db.collection('Users').doc(uid).set({
+        uid,
+        email: decodedToken.email,
+        role,
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now()
+      })
+    } else {
+      // Update role if it changed
+      await db.collection('Users').doc(uid).update({
+        role,
+        updatedAt: admin.firestore.Timestamp.now()
+      })
+    }
 
     return res.status(200).json({
       authenticated: true,
-      role: roleData?.role || 'guest',  // Default to 'guest' if no role is found
+      uid,
+      role,
+      email: decodedToken.email
     })
-  } catch (error) {
-    console.error("Error checking auth status:", error)
-    return res.status(500).json({ authenticated: false })
+  } catch (error: unknown) {
+    console.error('Auth status error:', error instanceof Error ? error.message : error)
+    return res.status(401).json({ authenticated: false, message: 'Invalid token' })
   }
 }

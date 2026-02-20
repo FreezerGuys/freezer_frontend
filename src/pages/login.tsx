@@ -1,53 +1,154 @@
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/router'
-import Cookies from 'js-cookie'
-import { TextField, Button, Box, Typography, Container, Alert } from '@mui/material'
+import { 
+  TextField, 
+  Button, 
+  Box, 
+  Typography, 
+  Container, 
+  Alert,
+  Card,
+  Stack
+} from '@mui/material'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '../lib/firebase'
 
 export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)  // State to hold success message
+  const [success, setSuccess] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setError(null)  // Clear previous errors
-    setSuccess(null) // Clear previous success messages
+    setError(null)
+    setSuccess(null)
+    setIsLoading(true)
 
     const formData = new FormData(event.currentTarget)
-    const email = formData.get('email')
-    const password = formData.get('password')
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
 
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      Cookies.set('auth_token', data.token, { expires: 7, secure: process.env.NODE_ENV === 'production' })
-      setSuccess('Login successful! Redirecting...')  // Show success message
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      setSuccess('Login successful! Redirecting...')
       setTimeout(() => {
-        router.push('/') // Redirect to home page after a short delay
-      }, 1500)  // Delay the redirect to show the success alert
-    } else {
-      const errorData = await response.json()
-      setError(errorData.message || 'Login failed. Please try again.')
+        router.replace('/')
+      }, 1000)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.')
+      setIsLoading(false)
     }
   }
 
   return (
-    <Container maxWidth="xs">
-      <Box display="flex" flexDirection="column" alignItems="center" mt={8}>
-        <Typography variant="h5" gutterBottom>Login</Typography>
-        {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ width: '100%', mb: 2 }}>{success}</Alert>}
-        <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-          <TextField fullWidth margin="normal" label="Email" name="email" type="email" required />
-          <TextField fullWidth margin="normal" label="Password" name="password" type="password" required />
-          <Button fullWidth variant="contained" color="primary" type="submit" sx={{ mt: 2 }}>Login</Button>
-        </form>
-      </Box>
-    </Container>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+        padding: 2,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Card
+          sx={{
+            padding: 4,
+            boxShadow: '0 20px 25px rgba(0,0,0,0.15)',
+          }}
+        >
+          {/* Logo/Header */}
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 1,
+              }}
+            >
+              ThermalHaven
+            </Typography>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{ fontWeight: 500 }}
+            >
+              Laboratory Inventory Management
+            </Typography>
+          </Box>
+
+          {/* Error Alert */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 1 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Success Alert */}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2, borderRadius: 1 }}>
+              {success}
+            </Alert>
+          )}
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={2.5}>
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                type="email"
+                placeholder="your@email.com"
+                required
+                disabled={isLoading}
+                variant="outlined"
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                fullWidth
+                label="Password"
+                name="password"
+                type="password"
+                required
+                disabled={isLoading}
+                variant="outlined"
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                type="submit"
+                disabled={isLoading}
+                size="large"
+                sx={{
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                }}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </Stack>
+          </form>
+
+          {/* Footer */}
+          <Box sx={{ textAlign: 'center', mt: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              © 2026 ThermalHaven. All rights reserved.
+            </Typography>
+          </Box>
+        </Card>
+      </Container>
+    </Box>
   )
 }
