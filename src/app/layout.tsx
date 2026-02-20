@@ -1,6 +1,8 @@
+import { Providers } from './providers'
+
 export const metadata = {
-  title: 'Freezer POC',
-  description: 'The coolest guys aaround',
+  title: 'Freezer Inventory Management',
+  description: 'Professional laboratory freezer inventory tracking system',
 }
 
 export default function RootLayout({
@@ -9,8 +11,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }

@@ -3,12 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Button, TextField, Box, Typography, Container, Alert } from '@mui/material'
-import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'
-import { getFirestore, setDoc, doc } from 'firebase/firestore'
-import { app } from '../lib/firebase'
-
-const db = getFirestore(app)
-const auth = getAuth(app)
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth'
+import { auth } from '../lib/firebase'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -19,30 +15,25 @@ export default function SignupPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [userRole, setUserRole] = useState<'admin' | 'superadmin' | 'guest' | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/status', { credentials: 'include' })
-        const data = await res.json()
-
-        if (!data.authenticated) {
-          setError('You must be logged in to create student accounts.')
-          router.push('/login')  // Redirect to login if not logged in
-          return
-        }
-
-        // Set logged-in status and role
-        setIsLoggedIn(true)
-        setUserRole(data.role)
-      } catch (error) {
-        setError('Error checking user authentication status.')
-        console.error(error)
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setError('You must be logged in to create student accounts.')
+        router.push('/login')
+        return
       }
-    }
-
-    checkAuth()
+      try {
+        const tokenResult = await user.getIdTokenResult()
+        const role = (tokenResult.claims.role as string) ?? 'user'
+        setIsLoggedIn(true)
+        setUserRole(role)
+      } catch {
+        setError('Error checking user authentication status.')
+      }
+    })
+    return () => unsubscribe()
   }, [router])
 
   const handleSignup = async () => {
@@ -54,29 +45,20 @@ export default function SignupPage() {
     setLoading(true)
     try {
       // Create a user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, 'defaultPassword123') // Password is not used, we will send a reset link
-      const user = userCredential.user
-
-      // Create student user in Firestore
-      await setDoc(doc(db, 'users', email), {
-        name,
-        email,
-        role: 'student',
-        uid: user.uid,  // Store Firebase UID
-      })
-
+      await createUserWithEmailAndPassword(auth, email, 'defaultPassword123') // Password reset link sent below
       // Send password reset email to the student
       await sendPasswordResetEmail(auth, email)
 
       setSuccess('Student account created successfully! A password reset link has been sent to the student email.')
       setTimeout(() => {
-        router.push('/dashboard') // Redirect to dashboard or another page
+        router.push('/') // Redirect to dashboard or another page
       }, 1500)
-    } catch (error: any) {
-  if (error.code === 'auth/email-already-in-use') {
+    } catch (error: unknown) {
+  const err = error as { code?: string; message?: string }
+  if (err.code === 'auth/email-already-in-use') {
     setError('This email is already associated with an account. Please use a different email or ask the student to reset their password.')
   } else {
-    setError(error.message || 'An unexpected error occurred.')
+    setError(err.message ?? 'An unexpected error occurred.')
   }
   console.error('Signup error:', error)
 }

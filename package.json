@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "deploy": "next build && firebase deploy",
+    "deploy:hosting": "firebase deploy --only hosting"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.1.0",
@@ -20,12 +23,13 @@
     "firebase": "^11.4.0",
     "firebase-admin": "^13.2.0",
     "js-cookie": "^3.0.5",
-    "next": "^15.2.2",
+    "next": "15.2.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.3.0"
   },
   "devDependencies": {
+    "firebase-tools": "^14.4.0",
     "@eslint/eslintrc": "^3",
     "@types/cookies": "^0.9.0",
     "@types/js-cookie": "^3.0.6",
@@ -33,7 +37,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.2.2",
+    "eslint-config-next": "15.2.6",
     "typescript": "^5"
   }
 }
+
