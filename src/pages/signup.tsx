@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { Button, TextField, Box, Typography, Container, Alert } from '@mui/material'
+import { Button, TextField, Box, Typography, Container, Alert, Paper } from '@mui/material'
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 
@@ -68,45 +68,63 @@ export default function SignupPage() {
   }
 
   return (
-    <Container maxWidth="xs">
-      <Box display="flex" flexDirection="column" alignItems="center" mt={8}>
-        <Typography variant="h5" gutterBottom>Create Student Account</Typography>
-
-        {/* Error and success messages */}
-        {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ width: '100%', mb: 2 }}>{success}</Alert>}
-
-        {/* Form Fields */}
-        <TextField
-          label="Student Name"
-          variant="outlined"
-          fullWidth
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Student Email"
-          type="email"
-          variant="outlined"
-          fullWidth
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-
-        {/* Sign Up Button */}
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          onClick={handleSignup}
-          sx={{ mt: 2 }}
-          disabled={loading}
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 8 }}>
+      <Container maxWidth="xs">
+        <Paper
+          sx={{
+            p: 4,
+            borderRadius: 2,
+            animation: 'signupFadeIn 0.4s ease-out both',
+            '@keyframes signupFadeIn': {
+              from: { opacity: 0, transform: 'translateY(8px)' },
+              to: { opacity: 1, transform: 'translateY(0)' }
+            },
+            '@media (prefers-reduced-motion: reduce)': { animation: 'none' }
+          }}
         >
-          {loading ? 'Creating...' : 'Create Student Account'}
-        </Button>
-      </Box>
-    </Container>
+          <Box display="flex" flexDirection="column" alignItems="center">
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Create Student Account</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
+              A password reset link will be sent to the student&apos;s email.
+            </Typography>
+
+            {/* Error and success messages */}
+            {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ width: '100%', mb: 2 }}>{success}</Alert>}
+
+            {/* Form Fields */}
+            <TextField
+              label="Student Name"
+              variant="outlined"
+              fullWidth
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Student Email"
+              type="email"
+              variant="outlined"
+              fullWidth
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+
+            {/* Sign Up Button */}
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={handleSignup}
+              sx={{ mt: 2, py: 1.25, fontWeight: 600 }}
+              disabled={loading}
+            >
+              {loading ? 'Creating...' : 'Create Student Account'}
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   )
 }

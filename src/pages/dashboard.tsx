@@ -411,22 +411,63 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Header Section */}
-        <Box sx={{ mb: 4 }}>
-          <Typography 
-            variant="h3" 
+      <Container
+        maxWidth="lg"
+        sx={{
+          py: 4,
+          animation: 'dashboardFadeIn 0.4s ease-out both',
+          '@keyframes dashboardFadeIn': {
+            from: { opacity: 0, transform: 'translateY(8px)' },
+            to: { opacity: 1, transform: 'translateY(0)' }
+          },
+          '@media (prefers-reduced-motion: reduce)': { animation: 'none' }
+        }}
+      >
+        {/* Header Section - same glow-blob language as the homepage/login,
+            toned way down since it sits on a light background behind dense
+            data rather than as a full-bleed hero */}
+        <Box sx={{ position: 'relative', overflow: 'hidden', mb: 4, py: 1 }}>
+          <Box
+            aria-hidden="true"
             sx={{
-              fontWeight: 800,
-              mb: 0.5,
-              color: 'text.primary'
+              position: 'absolute',
+              top: -60,
+              left: -40,
+              width: 220,
+              height: 220,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(37,99,235,0.08) 0%, rgba(37,99,235,0) 70%)',
+              pointerEvents: 'none'
             }}
-          >
-            Inventory Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-            Manage and track your laboratory samples
-          </Typography>
+          />
+          <Box
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              top: -40,
+              right: -20,
+              width: 180,
+              height: 180,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(5,150,105,0.08) 0%, rgba(5,150,105,0) 70%)',
+              pointerEvents: 'none'
+            }}
+          />
+          <Box sx={{ position: 'relative' }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                mb: 0.5,
+                color: 'text.primary'
+              }}
+            >
+              Inventory Dashboard
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Manage and track your laboratory samples
+            </Typography>
+          </Box>
         </Box>
 
         {/* Alerts */}
@@ -581,7 +622,17 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
           {/* Details Panel */}
           <Grid item xs={12}>
             {selectedItem ? (
-              <Paper sx={{ p: 3, borderRadius: 2 }}>
+              <Paper
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 24px rgba(15,23,42,0.12)'
+                  }
+                }}
+              >
                 <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
                   Sample Details
                 </Typography>

@@ -148,8 +148,9 @@ export function FreezerMap({ items, onLocationClick }: FreezerMapProps) {
                       hoveredLocation === location.label ? 'primary.main' : 'transparent',
                     transition: 'all 0.2s ease-in-out',
                     '&:hover': {
-                      boxShadow: 3,
+                      boxShadow: '0 12px 20px rgba(15,23,42,0.14)',
                       borderColor: 'primary.main',
+                      transform: 'translateY(-3px)',
                       bgcolor:
                         hoveredLocation === location.label
                           ? getLocationColor(location)
