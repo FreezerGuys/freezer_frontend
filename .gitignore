@@ -20,8 +20,17 @@
 # production
 /build
 
+# env files - may hold FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY or other
+# secrets; NEXT_PUBLIC_* vars are safe to expose but keep the whole file out
+# of git rather than relying on nothing sensitive ever landing in it
+.env
+.env*.local
+.env.production
+.env.development
+
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug

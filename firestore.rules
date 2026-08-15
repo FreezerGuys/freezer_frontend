@@ -155,6 +155,38 @@ service cloud.firestore {
       allow delete: if request.auth != null && isSuperAdmin();
     }
     
+    // Contact Messages - public homepage contact form submissions
+    match /ContactMessages/{messageId} {
+      // Read: only admin and superadmin
+      allow read: if request.auth != null && isAdmin();
+
+      // Create: anyone, including unauthenticated visitors - this is the
+      // public contact form. Validated to keep the mailbox from being used
+      // to store arbitrary data.
+      allow create: if
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 100 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 254 &&
+        request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 10 &&
+        request.resource.data.message.size() <= 2000 &&
+        request.resource.data.status == 'new' &&
+        request.resource.data.createdAt != null &&
+        request.resource.data.keys().hasOnly(['name', 'email', 'message', 'status', 'createdAt']);
+
+      // Update: admin/superadmin only (e.g. marking a message as read)
+      allow update: if request.auth != null &&
+        isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        (request.resource.data.status == 'new' || request.resource.data.status == 'read');
+
+      // Delete: only superadmin
+      allow delete: if request.auth != null && isSuperAdmin();
+    }
+
     // Users collection - user account info
     match /Users/{userId} {
       // Read: self or admin/superadmin

@@ -202,7 +202,7 @@ export interface NewInventoryItemInput {
     position: number
   }
   category: '4C' | '-20C'
-  barcode: string
+  barcode?: string
   qrCode: string
 }
 

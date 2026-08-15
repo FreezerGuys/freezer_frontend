@@ -36,18 +36,3 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
-## Try it out!
-Test Login INFO
-test11@gmail.com
-test11
-
-
-TODO RULES
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userEmail} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userEmail;
-      allow create: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin']);
-    }
-  }
-}

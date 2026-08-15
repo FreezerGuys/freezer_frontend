@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Box } from "@mui/material"
 import DashboardPage from "@/pages/dashboard"
+import { PublicHomePage } from "@/components/PublicHomePage"
 import { useRouter } from "next/navigation"
 import { onAuthStateChanged } from "firebase/auth"
 import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore"
@@ -27,12 +28,14 @@ export default function Home() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        // No signed-in user - show the public marketing homepage instead of
+        // bouncing straight to /login, so signed-out visitors have something
+        // to land on.
         setIsAuthenticated(false)
         setRole(null)
         setUserId(null)
         setEmail(null)
         setHasCheckedAuth(true)
-        router.replace("/login")
         return
       }
 
@@ -84,7 +87,7 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return null
+    return <PublicHomePage onSignIn={pushLogin} />
   }
 
   return (

@@ -41,11 +41,16 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore'
-import { app } from '@/lib/firebase'
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
+import { collection, getDocs, getFirestore } from 'firebase/firestore'
+import { signOut } from 'firebase/auth'
+import { app, auth } from '@/lib/firebase'
 import { validateInventoryItem } from '@/lib/validators'
-import { addInventoryItem as addInventoryItemQuery, checkoutItem as checkoutItemQuery, fetchAllInventory } from '@/lib/firebaseQueries'
+import { checkoutItem as checkoutItemQuery, fetchAllInventory } from '@/lib/firebaseQueries'
+import { generateQrCodeId, encodeSamplePayload, generateQrDataUrl, SamplePayloadV1 } from '@/lib/qr'
 import { FreezerMap } from '@/components/FreezerMap'
+import { QrLabelDialog } from '@/components/QrLabelDialog'
+import { ImportModeOverlay } from '@/components/ImportModeOverlay'
 import { InventoryItem } from '@/types/inventory'
 
 interface Props {
@@ -83,11 +88,9 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
     notes: '',
     category: '4C' as '4C' | '-20C',
     barcode: '',
-    qrCode: '',
     batchNumber: '',
     serialNumber: '',
-    casNumber: '',
-    location: { track: 1, position: 1 }
+    casNumber: ''
   })
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [showCheckoutDialog, setShowCheckoutDialog] = useState<boolean>(false)
@@ -95,11 +98,33 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
   const [checkoutReturnDate, setCheckoutReturnDate] = useState<string>('')
   const [checkoutPurpose, setCheckoutPurpose] = useState<string>('')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<boolean>(false)
+  const [showLabelDialog, setShowLabelDialog] = useState<boolean>(false)
+  const [labelDataUrl, setLabelDataUrl] = useState<string>('')
+  const [labelItemName, setLabelItemName] = useState<string>('')
+  const [labelCompany, setLabelCompany] = useState<string>('')
+  const [showImportMode, setShowImportMode] = useState<boolean>(false)
 
-  const isAdmin = role === 'admin' || role === 'superadmin'
+  // admin = "teacher": import mode only. superadmin = "administrator": creates samples (and can also import).
+  const canCreateSamples = role === 'superadmin'
+  const canImportSamples = role === 'admin' || role === 'superadmin'
 
-  const handleLogout = () => {
+  const refreshInventory = async () => {
+    const snapshot = await getDocs(collection(db, 'Inventory'))
+    const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem))
+    items.sort((a: InventoryItem, b: InventoryItem) => (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()))
+    setInventory(items)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+    } catch (err) {
+      // Don't trap the user on the dashboard if this fails - still clear
+      // local state and send them to login below.
+      console.error('Sign out failed:', err)
+    }
     Cookies.remove('auth_token')
+    Cookies.remove('auth_role')
     setSuccess('Successfully logged out')
     setTimeout(() => pushLogin(), 600)
   }
@@ -167,10 +192,7 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
       setShowCheckoutDialog(false)
 
       // Refresh inventory
-      const snapshot = await getDocs(collection(db, 'Inventory'))
-      const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem))
-      items.sort((a: InventoryItem, b: InventoryItem) => (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()))
-      setInventory(items)
+      await refreshInventory()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to checkout item')
       setTimeout(() => setError(null), 3000)
@@ -179,35 +201,10 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
     }
   }
 
-  const checkDuplicate = async (name: string, company: string, batchNumber?: string): Promise<boolean> => {
-    try {
-      let q
-      if (batchNumber?.trim()) {
-        q = query(
-          collection(db, 'Inventory'),
-          where('name', '==', name.trim()),
-          where('company', '==', company.trim()),
-          where('batchNumber', '==', batchNumber.trim())
-        )
-      } else {
-        q = query(
-          collection(db, 'Inventory'),
-          where('name', '==', name.trim()),
-          where('company', '==', company.trim())
-        )
-      }
-      const snapshot = await getDocs(q)
-      return snapshot.size > 0
-    } catch (error) {
-      console.error('Error checking for duplicates:', error)
-      return false
-    }
-  }
-
-  const handleAddInventory = async () => {
+  const handleCreateSample = async () => {
     setFieldErrors({})
-    
-    // Build input object for validation
+
+    // Build input object for validation (location is chosen later, at import time)
     const input = {
       name: newItem.name.trim(),
       company: newItem.company.trim(),
@@ -218,12 +215,11 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
       expirationDate: newItem.expirationDate || '',
       notes: newItem.notes.trim() || '',
       category: newItem.category,
-      barcode: newItem.barcode.trim(),
-      qrCode: newItem.qrCode.trim(),
+      barcode: newItem.barcode.trim() || undefined,
+      qrCode: generateQrCodeId(),
       batchNumber: newItem.batchNumber.trim() || undefined,
       serialNumber: newItem.serialNumber.trim() || undefined,
-      casNumber: newItem.casNumber.trim() || undefined,
-      location: newItem.location
+      casNumber: newItem.casNumber.trim() || undefined
     }
 
     // Validate using validators
@@ -237,33 +233,17 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
 
     setIsLoadingAdd(true)
     try {
-      // Check for duplicate
-      const isDuplicate = await checkDuplicate(newItem.name, newItem.company, newItem.batchNumber)
-      if (isDuplicate) {
-        setError(`An item with name "${newItem.name}" from "${newItem.company}"${newItem.batchNumber ? ` and batch "${newItem.batchNumber}"` : ''} already exists`)
-        setTimeout(() => setError(null), 3000)
-        setIsLoadingAdd(false)
-        return
-      }
+      const payload: SamplePayloadV1 = input
+      const payloadJson = encodeSamplePayload(payload)
+      const dataUrl = await generateQrDataUrl(payloadJson)
 
-      // Use the query function to add with proper schema
-      if (!userId) {
-        setError('User ID not found. Please log in again.')
-        return
-      }
+      setLabelDataUrl(dataUrl)
+      setLabelItemName(payload.name)
+      setLabelCompany(payload.company)
+      setShowLabelDialog(true)
 
-      await addInventoryItemQuery(input, userId)
-
-      // Refresh inventory list
-      const snapshot = await getDocs(collection(db, 'Inventory'))
-      const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem))
-      items.sort((a: InventoryItem, b: InventoryItem) => (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()))
-      setInventory(items)
-
-      setSuccess(`Successfully added "${newItem.name}" to inventory`)
-      setTimeout(() => setSuccess(null), 3000)
-
-      // Reset form and close dialog
+      // Reset form and close dialog - nothing is written to Firestore here;
+      // the sample is only added to inventory once its label is scanned in Import Mode.
       setNewItem({
         name: '',
         company: '',
@@ -275,17 +255,15 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
         notes: '',
         category: '4C',
         barcode: '',
-        qrCode: '',
         batchNumber: '',
         serialNumber: '',
-        casNumber: '',
-        location: { track: 1, position: 1 }
+        casNumber: ''
       })
       setFieldErrors({})
       setShowAddDialog(false)
     } catch (error) {
-      setError('Failed to add inventory item')
-      console.error('Error adding inventory:', error)
+      setError('Failed to generate sample label')
+      console.error('Error generating sample label:', error)
       setTimeout(() => setError(null), 3000)
     } finally {
       setIsLoadingAdd(false)
@@ -362,30 +340,42 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {isAdmin ? (
-              <>
-                <Button 
-                  variant="contained" 
-                  color="success" 
-                  onClick={() => setShowAddDialog(true)} 
-                  startIcon={<AddIcon />}
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  Add Item
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  color="info" 
-                  onClick={handleSignupRedirect} 
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  Create Account
-                </Button>
-              </>
-            ) : null}
-            <IconButton 
+            {canCreateSamples && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => setShowAddDialog(true)}
+                startIcon={<AddIcon />}
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                Create Sample
+              </Button>
+            )}
+            {canImportSamples && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setShowImportMode(true)}
+                startIcon={<QrCodeScannerIcon />}
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                Import Mode
+              </Button>
+            )}
+            {canImportSamples && (
+              <Button
+                variant="outlined"
+                color="info"
+                onClick={handleSignupRedirect}
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                Create Account
+              </Button>
+            )}
+            <IconButton
               color="primary" 
               onClick={() => setShowCart(true)}
               size="small"
@@ -747,8 +737,11 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
       </Drawer>
 
       <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Inventory Item</DialogTitle>
+        <DialogTitle>Create Sample</DialogTitle>
         <DialogContent sx={{ pt: 2, maxHeight: '70vh', overflowY: 'auto' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            This generates a printable QR label. The sample is added to inventory once a teacher scans it in Import Mode.
+          </Typography>
           {/* Required Fields */}
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600, color: 'primary.main' }}>
             Required Fields
@@ -817,35 +810,22 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
             {fieldErrors.category && <FormHelperText>{fieldErrors.category}</FormHelperText>}
           </FormControl>
           
+          {/* Optional Fields */}
+          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+            Optional Fields
+          </Typography>
+
           <TextField
             fullWidth
             label="Barcode"
             margin="normal"
             value={newItem.barcode}
             onChange={(e) => setNewItem({ ...newItem, barcode: e.target.value })}
-            placeholder="e.g., 123456789"
+            placeholder="e.g., 123456789 (physical barcode on the container, if any)"
             error={!!fieldErrors.barcode}
             helperText={fieldErrors.barcode}
-            required
-          />
-          
-          <TextField
-            fullWidth
-            label="QR Code"
-            margin="normal"
-            value={newItem.qrCode}
-            onChange={(e) => setNewItem({ ...newItem, qrCode: e.target.value })}
-            placeholder="e.g., QR123456789"
-            error={!!fieldErrors.qrCode}
-            helperText={fieldErrors.qrCode}
-            required
           />
 
-          {/* Optional Fields */}
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-            Optional Fields
-          </Typography>
-          
           <TextField
             fullWidth
             label="Concentration"
@@ -890,49 +870,6 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
             helperText={fieldErrors.casNumber}
           />
           
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 2, fontWeight: 600, color: 'primary.main' }}>
-            Freezer Location (3×2 Track System)
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <FormControl fullWidth error={!!fieldErrors.track}>
-                <InputLabel>Track (Row)</InputLabel>
-                <Select
-                  value={newItem.location?.track || 1}
-                  onChange={(e) => setNewItem({ 
-                    ...newItem, 
-                    location: { ...newItem.location, track: e.target.value as number }
-                  })}
-                  label="Track (Row)"
-                >
-                  <MenuItem value={1}>Track 1 (Top)</MenuItem>
-                  <MenuItem value={2}>Track 2 (Middle)</MenuItem>
-                  <MenuItem value={3}>Track 3 (Bottom)</MenuItem>
-                </Select>
-                {fieldErrors.track && <FormHelperText>{fieldErrors.track}</FormHelperText>}
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={6}>
-              <FormControl fullWidth error={!!fieldErrors.position}>
-                <InputLabel>Position (Column)</InputLabel>
-                <Select
-                  value={newItem.location?.position || 1}
-                  onChange={(e) => setNewItem({ 
-                    ...newItem, 
-                    location: { ...newItem.location, position: e.target.value as number }
-                  })}
-                  label="Position (Column)"
-                >
-                  <MenuItem value={1}>Position 1 (Left)</MenuItem>
-                  <MenuItem value={2}>Position 2 (Right)</MenuItem>
-                </Select>
-                {fieldErrors.position && <FormHelperText>{fieldErrors.position}</FormHelperText>}
-              </FormControl>
-            </Grid>
-          </Grid>
-          
           <TextField
             fullWidth
             label="Purchase Date"
@@ -975,16 +912,34 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
             setShowAddDialog(false)
             setFieldErrors({})
           }}>Cancel</Button>
-          <Button 
-            onClick={handleAddInventory} 
-            variant="contained" 
+          <Button
+            onClick={handleCreateSample}
+            variant="contained"
             color="success"
             disabled={isLoadingAdd}
           >
-            {isLoadingAdd ? 'Adding...' : 'Add Item'}
+            {isLoadingAdd ? 'Generating...' : 'Generate QR Label'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <QrLabelDialog
+        open={showLabelDialog}
+        onClose={() => setShowLabelDialog(false)}
+        dataUrl={labelDataUrl}
+        itemName={labelItemName}
+        company={labelCompany}
+      />
+
+      {userId && (
+        <ImportModeOverlay
+          open={showImportMode}
+          onClose={() => setShowImportMode(false)}
+          userId={userId}
+          inventory={inventory}
+          onImported={refreshInventory}
+        />
+      )}
 
       {/* Checkout Dialog */}
       <Dialog open={showCheckoutDialog} onClose={() => setShowCheckoutDialog(false)} maxWidth="sm" fullWidth>

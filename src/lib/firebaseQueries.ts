@@ -12,9 +12,10 @@ import {
 } from 'firebase/firestore'
 import { app } from '@/lib/firebase'
 import { InventoryItem, NewInventoryItemInput, EditHistoryEntry, Checkout } from '@/types/inventory'
+import { NewContactMessageInput } from '@/types/contact'
 
 type EditChanges = EditHistoryEntry['changes']
-import { generateLocationLabel, generateLocationDescription } from '@/lib/validators'
+import { generateLocationLabel, generateLocationDescription, validateContactMessage } from '@/lib/validators'
 
 const db = getFirestore(app)
 
@@ -77,6 +78,27 @@ export async function isDuplicateInventory(
 }
 
 /**
+ * Checks whether a sample with the given QR code token has already been
+ * imported into the Inventory collection. This is the primary guard against
+ * re-scanning the same printed label twice.
+ * @param qrCode - QR code token to check
+ * @returns True if an item with this qrCode already exists
+ */
+export async function isDuplicateQrCode(qrCode: string): Promise<boolean> {
+  try {
+    const q = query(
+      collection(db, 'Inventory'),
+      where('qrCode', '==', qrCode.trim())
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.size > 0
+  } catch (error) {
+    console.error('Error checking for duplicate QR code:', error)
+    throw new Error('Failed to check for duplicate QR code')
+  }
+}
+
+/**
  * Adds a new inventory item to Firestore
  * @param item - The new inventory item input
  * @param userId - The user ID who is creating this item
@@ -120,7 +142,7 @@ export async function addInventoryItem(
       location: locationData,
       locationLabel: locationLabel || null,
       category: item.category,
-      barcode: item.barcode.trim(),
+      barcode: item.barcode?.trim() || '',
       qrCode: item.qrCode.trim(),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -140,6 +162,32 @@ export async function addInventoryItem(
   } catch (error) {
     console.error('Error adding inventory item:', error)
     throw new Error('Failed to add inventory item')
+  }
+}
+
+/**
+ * Submits a public homepage contact form message to the ContactMessages
+ * collection. Anyone can call this (no auth) - see firestore.rules for the
+ * matching public-create/admin-only-read security rules.
+ * @param input - The contact form fields
+ */
+export async function submitContactMessage(input: NewContactMessageInput): Promise<void> {
+  const validation = validateContactMessage(input)
+  if (!validation.isValid) {
+    throw new Error(Object.values(validation.errors)[0])
+  }
+
+  try {
+    await addDoc(collection(db, 'ContactMessages'), {
+      name: input.name.trim(),
+      email: input.email.trim(),
+      message: input.message.trim(),
+      status: 'new',
+      createdAt: Timestamp.now()
+    })
+  } catch (error) {
+    console.error('Error submitting contact message:', error)
+    throw new Error('Failed to send your message. Please try again.')
   }
 }
 

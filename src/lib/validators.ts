@@ -1,4 +1,5 @@
 import { NewInventoryItemInput, InventoryItem } from '@/types/inventory'
+import { NewContactMessageInput } from '@/types/contact'
 
 /**
  * Validation result object
@@ -63,13 +64,13 @@ export function validateInventoryItem(item: NewInventoryItemInput): ValidationRe
     errors.category = 'Category must be 4C or -20C'
   }
 
-  // barcode
-  if (!item.barcode?.trim()) {
-    errors.barcode = 'Barcode is required'
-  } else if (item.barcode.trim().length < 3) {
-    errors.barcode = 'Barcode must be at least 3 characters'
-  } else if (item.barcode.trim().length > 100) {
-    errors.barcode = 'Barcode must be less than 100 characters'
+  // barcode (optional - manual physical barcode on the container, if any)
+  if (item.barcode?.trim()) {
+    if (item.barcode.trim().length < 3) {
+      errors.barcode = 'Barcode must be at least 3 characters'
+    } else if (item.barcode.trim().length > 100) {
+      errors.barcode = 'Barcode must be less than 100 characters'
+    }
   }
 
   // qrCode
@@ -142,6 +143,46 @@ export function validateInventoryItem(item: NewInventoryItemInput): ValidationRe
 
   if (item.notes && item.notes.length > 500) {
     errors.notes = 'Notes must be less than 500 characters'
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Validates a public homepage contact form submission.
+ * @param input - The contact message to validate
+ * @returns ValidationResult with any validation errors
+ */
+export function validateContactMessage(input: NewContactMessageInput): ValidationResult {
+  const errors: Record<string, string> = {}
+
+  if (!input.name?.trim()) {
+    errors.name = 'Name is required'
+  } else if (input.name.trim().length < 2) {
+    errors.name = 'Name must be at least 2 characters'
+  } else if (input.name.trim().length > 100) {
+    errors.name = 'Name must be less than 100 characters'
+  }
+
+  if (!input.email?.trim()) {
+    errors.email = 'Email is required'
+  } else if (!EMAIL_PATTERN.test(input.email.trim())) {
+    errors.email = 'Enter a valid email address'
+  } else if (input.email.trim().length > 254) {
+    errors.email = 'Email must be less than 254 characters'
+  }
+
+  if (!input.message?.trim()) {
+    errors.message = 'Message is required'
+  } else if (input.message.trim().length < 10) {
+    errors.message = 'Message must be at least 10 characters'
+  } else if (input.message.trim().length > 2000) {
+    errors.message = 'Message must be less than 2000 characters'
   }
 
   return {
