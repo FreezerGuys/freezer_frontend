@@ -54,35 +54,6 @@ export default function LoginPage() {
         padding: 2,
       }}
     >
-      {/* Decorative glow blobs - same treatment as the homepage hero, so the
-          card doesn't feel like a plain rectangle bolted onto the gradient */}
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: 'absolute',
-          top: -90,
-          right: -90,
-          width: 320,
-          height: 320,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(16,185,129,0.35) 0%, rgba(16,185,129,0) 70%)',
-          pointerEvents: 'none'
-        }}
-      />
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: 'absolute',
-          bottom: -120,
-          left: -80,
-          width: 360,
-          height: 360,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)',
-          pointerEvents: 'none'
-        }}
-      />
-
       <Container
         maxWidth="sm"
         sx={{
@@ -96,6 +67,39 @@ export default function LoginPage() {
           '@media (prefers-reduced-motion: reduce)': { animation: 'none' }
         }}
       >
+        {/* Decorative glow blobs - positioned relative to the card's own
+            wrapper (not the full 100vh page), so they hug the card
+            regardless of viewport height instead of sitting stranded in
+            the page's corners, far from the vertically-centered card. */}
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'absolute',
+            top: -70,
+            right: -70,
+            width: 260,
+            height: 260,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(16,185,129,0.55) 0%, rgba(16,185,129,0) 70%)',
+            pointerEvents: 'none',
+            zIndex: -1
+          }}
+        />
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'absolute',
+            bottom: -80,
+            left: -60,
+            width: 260,
+            height: 260,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%)',
+            pointerEvents: 'none',
+            zIndex: -1
+          }}
+        />
+
         <Card
           sx={{
             padding: 4,
