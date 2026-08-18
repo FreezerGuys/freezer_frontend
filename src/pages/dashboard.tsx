@@ -8,7 +8,6 @@ import {
   Box,
   Container,
   Alert,
-  CssBaseline,
   Paper,
   Divider,
   List,
@@ -317,7 +316,6 @@ export default function DashboardPage({ handleSignupRedirect, pushLogin, role, u
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      <CssBaseline />
       <AppBar position="sticky" color="default" elevation={2}>
         <Toolbar sx={{ justifyContent: 'space-between', py: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
